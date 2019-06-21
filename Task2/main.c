@@ -1,35 +1,85 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
+#include <stdlib.h>
 
-#define INPUT_FILE_NAME "Input.wav"		//TODO: from cmd
-#define OUTPUT_FILE_NAME "Output.wav"	//TODO: from cmd
 #define FILE_HEADER_SIZE 44
 #define DATA_BUFF_SIZE 10
 #define BYTES_PER_SAMPLE 2
+#define FRACTIONAL_BITS 31
+
+
+int32_t floatToFixed32(float x);
+int32_t Mul(int32_t x, int32_t y);
 
 void readHeader(uint8_t *headerBuff, FILE *inputFilePtr);
 void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr);
 uint32_t defineDataSize(uint8_t *headerBuff);
 void readData(int16_t *dataBuff, int16_t size, FILE *inputFilePtr);
 void writeData(int16_t *data, int16_t size, FILE *outputFilePtr);
-void swap_int16(int16_t *data, int16_t size);
+
 FILE * openFile(char *fileName, _Bool mode);	//if 0 - read, if 1 - write
 void closeFile(FILE *filePtr);
 
-int main()
+int32_t dBtoGain(float dB);
+int16_t processSample(int16_t sample, int32_t gain);
+void processBuffer(int16_t *data, int16_t size, int32_t gain);
+void processData(FILE *inputFilePtr, FILE *outputFilePtr, uint32_t dataSize, int32_t gain);
+
+
+int main(int argc, char *argv[])
 {
-	FILE *inputFilePtr = openFile(INPUT_FILE_NAME, 0);
-	FILE *outputFilePtr = openFile(OUTPUT_FILE_NAME, 1);
+	if (argc != 4)
+	{
+		printf("Error. The number of arguments should be 3\n");
+		system("pause");
+		exit(0);
+	}
+
+	if (atof(argv[3]) > 0)
+	{
+		printf("Wrong argument. dB gain can be only < 0\n");
+		system("pause");
+		exit(0);
+	}
+
+	FILE *inputFilePtr = openFile(argv[1], 0);
+	FILE *outputFilePtr = openFile(argv[2], 1);
 	uint8_t headerBuff[FILE_HEADER_SIZE];
 
 	readHeader(headerBuff, inputFilePtr);
 	writeHeader(headerBuff, outputFilePtr);
-
+	processData(inputFilePtr, outputFilePtr, defineDataSize(headerBuff), dBtoGain(atof(argv[3])));
+	printf("dataSize = %d\n", defineDataSize(headerBuff));
 	closeFile(inputFilePtr);
 	closeFile(outputFilePtr);
 
 	system("pause");
 	return 0;
+}
+
+int32_t floatToFixed32(float x)
+{
+	if (x >= 1)
+	{
+		return INT32_MAX;
+	}
+	else if (x < -1)
+	{
+		return INT32_MIN;
+	}
+
+	return (int32_t)(x * (double)(1LL << FRACTIONAL_BITS));
+}
+
+int32_t Mul(int32_t x, int32_t y)
+{
+	if (x == INT32_MIN && y == INT32_MIN)
+	{
+		return INT32_MAX;
+	}
+
+	return (int32_t)(((int64_t)x * y) >> 31);
 }
 
 void readHeader(uint8_t *headerBuff, FILE *inputFilePtr)
@@ -80,16 +130,6 @@ void writeData(int16_t *data, int16_t size, FILE *outputFilePtr)
 	}
 }
 
-void swap_int16(int16_t *data, int16_t size)
-{
-	int16_t i;
-
-	for (i = 0; i < size; i++)
-	{
-		*(data + i) = ((*(data + i)) << 8) | (((*(data + i)) >> 8) & 0xFF);
-	}
-}
-
 FILE * openFile(char *fileName, _Bool mode)		//if 0 - read, if 1 - write
 {
 	FILE * filePtr = NULL;
@@ -125,4 +165,47 @@ FILE * openFile(char *fileName, _Bool mode)		//if 0 - read, if 1 - write
 void closeFile(FILE *filePtr)
 {
 	fclose(filePtr);
+}
+
+int32_t dBtoGain(float dB)
+{
+	return floatToFixed32(powf(10, dB / 20.0f));
+}
+
+int16_t processSample(int16_t sample, int32_t gain)
+{
+	return (int16_t)(Mul((int32_t)sample << 16, gain) >> 16);
+}
+
+void processBuffer(int16_t *data, int16_t size, int32_t gain)
+{
+	int16_t i;
+
+	for (i = 0; i < size; i++)
+	{
+		*(data + i) = processSample(*(data + i), gain);
+	}
+}
+
+void processData(FILE *inputFilePtr, FILE *outputFilePtr, uint32_t dataSize, int32_t gain)
+{
+	int16_t i;
+	int16_t bytesLeft;
+	int16_t dataBuff[DATA_BUFF_SIZE];
+
+	for (i = 0; i < dataSize / BYTES_PER_SAMPLE / DATA_BUFF_SIZE; i++)
+	{
+		readData(dataBuff, DATA_BUFF_SIZE, inputFilePtr);
+		processBuffer(dataBuff, DATA_BUFF_SIZE, gain);
+		writeData(dataBuff, DATA_BUFF_SIZE, outputFilePtr);
+
+		bytesLeft = (dataSize / BYTES_PER_SAMPLE) % DATA_BUFF_SIZE;
+
+		if (bytesLeft != 0)
+		{
+			readData(dataBuff, bytesLeft, inputFilePtr);
+			processBuffer(dataBuff, DATA_BUFF_SIZE, gain);
+			writeData(dataBuff, bytesLeft, outputFilePtr);
+		}
+	}
 }

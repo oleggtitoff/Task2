@@ -13,11 +13,22 @@ uint32_t defineDataSize(uint8_t *headerBuff);
 void readData(int16_t *dataBuff, int16_t size, FILE *inputFilePtr);
 void writeData(int16_t *data, int16_t size, FILE *outputFilePtr);
 void swap_int16(int16_t *data, int16_t size);
+FILE * openFile(char *fileName, _Bool mode);	//if 0 - read, if 1 - write
+void closeFile(FILE *filePtr);
 
 int main()
 {
+	FILE *inputFilePtr = openFile(INPUT_FILE_NAME, 0);
+	FILE *outputFilePtr = openFile(OUTPUT_FILE_NAME, 1);
+	uint8_t headerBuff[FILE_HEADER_SIZE];
 
+	readHeader(headerBuff, inputFilePtr);
+	writeHeader(headerBuff, outputFilePtr);
 
+	closeFile(inputFilePtr);
+	closeFile(outputFilePtr);
+
+	system("pause");
 	return 0;
 }
 
@@ -77,4 +88,41 @@ void swap_int16(int16_t *data, int16_t size)
 	{
 		*(data + i) = ((*(data + i)) << 8) | (((*(data + i)) >> 8) & 0xFF);
 	}
+}
+
+FILE * openFile(char *fileName, _Bool mode)		//if 0 - read, if 1 - write
+{
+	FILE * filePtr = NULL;
+	errno_t err;
+
+	if (mode == 0)
+	{
+		err = fopen_s(&filePtr, fileName, "rb");
+	}
+	else
+	{
+		err = fopen_s(&filePtr, fileName, "wb");
+	}
+
+	if (err != 0)
+	{
+		if (mode == 0)
+		{
+			printf("Error opening input file\n");
+		}
+		else
+		{
+			printf("Error opening output file\n");
+		}
+
+		system("pause");
+		exit(0);
+	}
+
+	return filePtr;
+}
+
+void closeFile(FILE *filePtr)
+{
+	fclose(filePtr);
 }

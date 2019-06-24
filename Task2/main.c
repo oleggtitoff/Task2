@@ -188,7 +188,7 @@ void processBuffer(int16_t *data, int16_t size, int32_t gain)
 
 void processData(FILE *inputFilePtr, FILE *outputFilePtr, uint32_t dataSize, int32_t gain)
 {
-	int16_t i;
+	uint32_t i;
 	int16_t bytesLeft;
 	int16_t dataBuff[DATA_BUFF_SIZE];
 

@@ -50,7 +50,6 @@ int main(int argc, char *argv[])
 	readHeader(headerBuff, inputFilePtr);
 	writeHeader(headerBuff, outputFilePtr);
 	processData(inputFilePtr, outputFilePtr, defineDataSize(headerBuff), dBtoGain(atof(argv[3])));
-	printf("dataSize = %d\n", defineDataSize(headerBuff));
 	closeFile(inputFilePtr);
 	closeFile(outputFilePtr);
 

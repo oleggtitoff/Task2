@@ -14,10 +14,9 @@
 int32_t floatToFixed32(float x);
 int32_t Mul(int32_t x, int32_t y);
 
+FILE * openFile(char *fileName, _Bool mode);	//if 0 - read, if 1 - write
 void readHeader(uint8_t *headerBuff, FILE *inputFilePtr);
 void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr);
-
-FILE * openFile(char *fileName, _Bool mode);	//if 0 - read, if 1 - write
 
 int32_t dBtoGain(float dB);
 void run(FILE *inputFilePtr, FILE *outputFilePtr, int32_t gain);

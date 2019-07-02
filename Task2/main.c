@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
@@ -14,17 +16,11 @@ int32_t Mul(int32_t x, int32_t y);
 
 void readHeader(uint8_t *headerBuff, FILE *inputFilePtr);
 void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr);
-uint32_t defineDataSize(uint8_t *headerBuff);
-void readData(int16_t *dataBuff, int16_t size, FILE *inputFilePtr);
-void writeData(int16_t *data, int16_t size, FILE *outputFilePtr);
 
 FILE * openFile(char *fileName, _Bool mode);	//if 0 - read, if 1 - write
-void closeFile(FILE *filePtr);
 
 int32_t dBtoGain(float dB);
-int16_t processSample(int16_t sample, int32_t gain);
-void processBuffer(int16_t *data, int16_t size, int32_t gain);
-void processData(FILE *inputFilePtr, FILE *outputFilePtr, uint32_t dataSize, int32_t gain);
+void run(FILE *inputFilePtr, FILE *outputFilePtr, int32_t gain);
 
 
 int main(int argc, char *argv[])
@@ -49,11 +45,10 @@ int main(int argc, char *argv[])
 
 	readHeader(headerBuff, inputFilePtr);
 	writeHeader(headerBuff, outputFilePtr);
-	processData(inputFilePtr, outputFilePtr, defineDataSize(headerBuff), dBtoGain(atof(argv[3])));
-	closeFile(inputFilePtr);
-	closeFile(outputFilePtr);
+	run(inputFilePtr, outputFilePtr, dBtoGain(atof(argv[3])));
+	fclose(inputFilePtr);
+	fclose(outputFilePtr);
 
-	system("pause");
 	return 0;
 }
 
@@ -101,69 +96,30 @@ void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr)
 	}
 }
 
-uint32_t defineDataSize(uint8_t *headerBuff)
-{
-	return (*(headerBuff + FILE_HEADER_SIZE - 4)) |
-		(*(headerBuff + FILE_HEADER_SIZE - 3) << 8) |
-		(*(headerBuff + FILE_HEADER_SIZE - 2) << 16) |
-		(*(headerBuff + FILE_HEADER_SIZE - 1) << 24);
-}
-
-void readData(int16_t *dataBuff, int16_t size, FILE *inputFilePtr)
-{
-	if (fread(dataBuff, BYTES_PER_SAMPLE, size, inputFilePtr) != size)
-	{
-		printf("Error reading input file (data)\n");
-		system("pause");
-		exit(0);
-	}
-}
-
-void writeData(int16_t *data, int16_t size, FILE *outputFilePtr)
-{
-	if (fwrite(data, BYTES_PER_SAMPLE, size, outputFilePtr) != size)
-	{
-		printf("Error writing output file (data)\n");
-		system("pause");
-		exit(0);
-	}
-}
-
 FILE * openFile(char *fileName, _Bool mode)		//if 0 - read, if 1 - write
 {
-	FILE * filePtr = NULL;
-	errno_t err;
+	FILE *filePtr;
 
 	if (mode == 0)
 	{
-		err = fopen_s(&filePtr, fileName, "rb");
+		if ((filePtr = fopen(fileName, "rb")) == NULL)
+		{
+			printf("Error opening input file\n");
+			system("pause");
+			exit(0);
+		}
 	}
 	else
 	{
-		err = fopen_s(&filePtr, fileName, "wb");
-	}
-
-	if (err != 0)
-	{
-		if (mode == 0)
-		{
-			printf("Error opening input file\n");
-		}
-		else
+		if ((filePtr = fopen(fileName, "wb")) == NULL)
 		{
 			printf("Error opening output file\n");
+			system("pause");
+			exit(0);
 		}
-
-		system("pause");
-		exit(0);
 	}
 
 	return filePtr;
-}
-
-void closeFile(FILE *filePtr)
-{
-	fclose(filePtr);
 }
 
 int32_t dBtoGain(float dB)
@@ -171,40 +127,26 @@ int32_t dBtoGain(float dB)
 	return floatToFixed32(powf(10, dB / 20.0f));
 }
 
-int16_t processSample(int16_t sample, int32_t gain)
+void run(FILE *inputFilePtr, FILE *outputFilePtr, int32_t gain)
 {
-	return (int16_t)(Mul((int32_t)sample << 16, gain) >> 16);
-}
-
-void processBuffer(int16_t *data, int16_t size, int32_t gain)
-{
-	int16_t i;
-
-	for (i = 0; i < size; i++)
-	{
-		*(data + i) = processSample(*(data + i), gain);
-	}
-}
-
-void processData(FILE *inputFilePtr, FILE *outputFilePtr, uint32_t dataSize, int32_t gain)
-{
-	uint32_t i;
-	int16_t bytesLeft;
 	int16_t dataBuff[DATA_BUFF_SIZE];
+	size_t samplesRead;
+	uint32_t i;
 
-	for (i = 0; i < dataSize / BYTES_PER_SAMPLE / DATA_BUFF_SIZE; i++)
+	while (1)
 	{
-		readData(dataBuff, DATA_BUFF_SIZE, inputFilePtr);
-		processBuffer(dataBuff, DATA_BUFF_SIZE, gain);
-		writeData(dataBuff, DATA_BUFF_SIZE, outputFilePtr);
+		samplesRead = fread(dataBuff, BYTES_PER_SAMPLE, DATA_BUFF_SIZE, inputFilePtr);
 
-		bytesLeft = (dataSize / BYTES_PER_SAMPLE) % DATA_BUFF_SIZE;
-
-		if (bytesLeft != 0)
+		if (!samplesRead)
 		{
-			readData(dataBuff, bytesLeft, inputFilePtr);
-			processBuffer(dataBuff, DATA_BUFF_SIZE, gain);
-			writeData(dataBuff, bytesLeft, outputFilePtr);
+			break;
 		}
+
+		for (i = 0; i < samplesRead; i++)
+		{
+			dataBuff[i] = (int16_t)(Mul((int32_t)dataBuff[i] << 16, gain) >> 16);
+		}
+
+		fwrite(dataBuff, BYTES_PER_SAMPLE, samplesRead, outputFilePtr);
 	}
 }

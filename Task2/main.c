@@ -74,6 +74,11 @@ int32_t roundFixed64To32(int64_t x)
 	return (int32_t)((x + (1LL << 31)) >> 32);
 }
 
+int16_t roundFixed32To16(int32_t x)
+{
+	return (int16_t)((x + (1 << 15)) >> 16);
+}
+
 int32_t Mul(int32_t x, int32_t y)
 {
 	if (x == INT32_MIN && y == INT32_MIN)
@@ -141,8 +146,8 @@ void gainSignal(size_t size, int32_t gain)
 
 	for (i = 0; i < size / CHANNELS; i++)
 	{
-		dataBuff[i * CHANNELS] = (int16_t)(Mul((int32_t)dataBuff[i * CHANNELS] << 16, gain) >> 16);
-		dataBuff[i * CHANNELS + 1] = (int16_t)(Mul((int32_t)dataBuff[i * CHANNELS + 1] << 16, gain) >> 16);
+		dataBuff[i * CHANNELS] = roundFixed32To16(Mul((int32_t)dataBuff[i * CHANNELS] << 16, gain));
+		dataBuff[i * CHANNELS + 1] = roundFixed32To16(Mul((int32_t)dataBuff[i * CHANNELS + 1] << 16, gain));
 	}
 }
 
@@ -161,7 +166,6 @@ void run(FILE *inputFilePtr, FILE *outputFilePtr, int32_t gain)
 		}
 
 		gainSignal(samplesRead, gain);
-
 		fwrite(dataBuff, BYTES_PER_SAMPLE, samplesRead, outputFilePtr);
 	}
 }

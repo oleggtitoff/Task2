@@ -144,7 +144,7 @@ int32_t dBtoGain(float dB)
 
 void gainSignal(size_t size, int32_t gain)
 {
-	int i;
+	uint16_t i;
 
 	for (i = 0; i < size / CHANNELS; i++)
 	{

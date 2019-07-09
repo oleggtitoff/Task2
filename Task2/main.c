@@ -69,6 +69,11 @@ int32_t floatToFixed32(float x)
 	return (int32_t)(x * (double)(1LL << FRACTIONAL_BITS));
 }
 
+int32_t roundFixed64To32(int64_t x)
+{
+	return (int32_t)((x + (1LL << 31)) >> 32);
+}
+
 int32_t Mul(int32_t x, int32_t y)
 {
 	if (x == INT32_MIN && y == INT32_MIN)
@@ -76,7 +81,7 @@ int32_t Mul(int32_t x, int32_t y)
 		return INT32_MAX;
 	}
 
-	return (int32_t)(((int64_t)x * y) >> 31);
+	return roundFixed64To32(((int64_t)x * y) << 1);
 }
 
 void readHeader(uint8_t *headerBuff, FILE *inputFilePtr)

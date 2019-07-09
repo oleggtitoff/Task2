@@ -9,6 +9,7 @@
 #define DATA_BUFF_SIZE 10
 #define BYTES_PER_SAMPLE 2
 #define FRACTIONAL_BITS 31
+#define CHANNELS 2
 
 
 int32_t floatToFixed32(float x);
@@ -19,7 +20,10 @@ void readHeader(uint8_t *headerBuff, FILE *inputFilePtr);
 void writeHeader(uint8_t *headerBuff, FILE *outputFilePtr);
 
 int32_t dBtoGain(float dB);
+void gainSignal(size_t size, int32_t gain);
 void run(FILE *inputFilePtr, FILE *outputFilePtr, int32_t gain);
+
+static int16_t dataBuff[DATA_BUFF_SIZE * CHANNELS];
 
 
 int main(int argc, char *argv[])
@@ -126,25 +130,32 @@ int32_t dBtoGain(float dB)
 	return floatToFixed32(powf(10, dB / 20.0f));
 }
 
+void gainSignal(size_t size, int32_t gain)
+{
+	int i;
+
+	for (i = 0; i < size / CHANNELS; i++)
+	{
+		dataBuff[i * CHANNELS] = (int16_t)(Mul((int32_t)dataBuff[i * CHANNELS] << 16, gain) >> 16);
+		dataBuff[i * CHANNELS + 1] = (int16_t)(Mul((int32_t)dataBuff[i * CHANNELS + 1] << 16, gain) >> 16);
+	}
+}
+
 void run(FILE *inputFilePtr, FILE *outputFilePtr, int32_t gain)
 {
-	int16_t dataBuff[DATA_BUFF_SIZE];
 	size_t samplesRead;
 	uint32_t i;
 
 	while (1)
 	{
-		samplesRead = fread(dataBuff, BYTES_PER_SAMPLE, DATA_BUFF_SIZE, inputFilePtr);
+		samplesRead = fread(dataBuff, BYTES_PER_SAMPLE, DATA_BUFF_SIZE * CHANNELS, inputFilePtr);
 
 		if (!samplesRead)
 		{
 			break;
 		}
 
-		for (i = 0; i < samplesRead; i++)
-		{
-			dataBuff[i] = (int16_t)(Mul((int32_t)dataBuff[i] << 16, gain) >> 16);
-		}
+		gainSignal(samplesRead, gain);
 
 		fwrite(dataBuff, BYTES_PER_SAMPLE, samplesRead, outputFilePtr);
 	}

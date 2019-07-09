@@ -13,6 +13,8 @@
 
 
 int32_t floatToFixed32(float x);
+int32_t roundFixed64To32(int64_t x);
+int16_t roundFixed32To16(int32_t x);
 int32_t Mul(int32_t x, int32_t y);
 
 FILE * openFile(char *fileName, _Bool mode);	//if 0 - read, if 1 - write
@@ -37,7 +39,7 @@ int main(int argc, char *argv[])
 
 	if (atof(argv[3]) > 0)
 	{
-		printf("Wrong argument. dB gain can be only < 0\n");
+		printf("Wrong argument. dB gain can be only <= 0\n");
 		system("pause");
 		exit(0);
 	}
